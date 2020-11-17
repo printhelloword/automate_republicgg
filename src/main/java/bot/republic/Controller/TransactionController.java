@@ -4,8 +4,8 @@ import bot.republic.RepublicApplication;
 import bot.republic.entity.RepublicBot;
 import bot.republic.entity.Player;
 import bot.republic.entity.Voucher;
-import bot.republic.model.Inboxes;
-import bot.republic.model.Outboxes;
+import bot.republic.model.Inbox;
+import bot.republic.model.Outbox;
 import bot.republic.pojo.ResponsePojo;
 import bot.republic.pojo.VoucherPojo;
 import bot.republic.utility.DBUtilInboxes;
@@ -27,13 +27,14 @@ public class TransactionController {
     private static final String STATUS_FAILED = "Failed";
     private static final String STATUS_SUCCESS = "Success";
     private static final String TAG_STATUS_DEFAULT = STATUS_FAILED;
+    private static final String TAG_MESSAGE_DEFAULT = " ";
 
     private static final String TAG_TRX_ID = "Trx ID";
     private static final String TAG_PLAYER_ID = "Player ID";
 
-    private static final String MSG_ERROR_TRX_PLAYER_ID = "Invalid Trx ID / Player ID";
-    private static final String MSG_ERROR_TRX_ID_EXISTS = "Trx ID Already Exists";
-    private static final String MSG_ERROR_DENOM_INVALID = "Invalid Denom";
+    private static final String MSG_ERROR_TRX_PLAYER_ID = "TrxID/PlayerID Tidak Valid";
+    private static final String MSG_ERROR_TRX_ID_EXISTS = "TrxID Sudah Terdapat Di Database";
+    private static final String MSG_ERROR_DENOM_INVALID = "Denom Tidak Valid";
     private static final String MSG_ERROR_INBOX_UNSAVED = "Failed Save to Inbox";
     private static final String MSG_ERROR_OUTBOX_UNSAVED = "Failed Save to Outbox";
     private static final String MSG_ERROR_UNKNOWN = "Unknown";
@@ -50,19 +51,13 @@ public class TransactionController {
     private static final boolean STATUS_DEFAULT_TRUE = true;
     private static final boolean STATUS_DEFAULT_FALSE = false;
 
-    private Player player;
-    private boolean isRequestValid;
     private Integer inboxId;
-    private Integer outboxId;
 
     private ResponsePojo responsePojo;
     private VoucherPojo voucherPojo;
     private String response;
 
-    private RepublicBot republicBot;
-    private Voucher voucher;
-
-    private Map<Boolean, String> transactionResult;
+    private String playerId;
 
     private JSONObject jsonObject;
 
@@ -75,16 +70,32 @@ public class TransactionController {
             throws IOException {
 
         initDenomsUri();
-        initResponseAndValidateRequest(trxId, playerId, denom);
-        if (isReadyForTransaction()) {
-            saveToInbox(createNewInbox(trxId, playerId, denom, request));
-            try {
-                saveInboxANdStartTransaction();
-            }catch (Exception e){
-                e.printStackTrace();
-                RepublicApplication.logger.info("Transaction Failed");
+        printRequest(request.getRequestURI());
+
+        initResponsePojo(trxId, TAG_STATUS_DEFAULT, MSG_ERROR_TRX_PLAYER_ID);
+        initVoucherPojo(playerId, denom);
+
+        try {
+            if (!areTrxIdAndPlayerIdValid()){
+                updateResponseMessage(MSG_ERROR_TRX_PLAYER_ID);
+            }else{
+                if (isTrxIdAlreadyExists(responsePojo.getTrxId()))
+                    updateResponseMessage(MSG_ERROR_TRX_ID_EXISTS);
+                else {
+                    if (!isDenomValid(voucherPojo.getDenom()))
+                        updateResponseMessage(MSG_ERROR_DENOM_INVALID);
+                    else {
+                        saveToInbox(createNewInbox(trxId, playerId, denom, request));
+                        checkInboxisSavedAndStartTransaction();
+                    }
+                }
             }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            RepublicApplication.logger.info("Transaction Failed");
         }
+
 
         jsonObject = new JSONObject(responsePojo);
         response = jsonObject.toString();
@@ -94,19 +105,41 @@ public class TransactionController {
         return response;
     }
 
+    private boolean areTrxIdAndPlayerIdValid() {
+        return (InputValidator.isInputNumeric(responsePojo.getTrxId()) && InputValidator.isInputNumeric(voucherPojo.getPlayerId()));
+    }
+
+    private boolean areTrxIdAndPlayerIdNumeric(String trxId, String playerId) {
+        return (InputValidator.isInputNumeric(trxId) && InputValidator.isInputNumeric(playerId));
+    }
+
+    private void initResponsePojo(String trxId, String defaultStatus, String defaultMessage) {
+        responsePojo = ResponsePojo.byWithTrxIdStatusMessage(trxId, defaultStatus, defaultMessage);
+    }
+
+    private void initVoucherPojo(String playerId, String denom)
+    {
+        voucherPojo = VoucherPojo.byPlayerIdAndDenom(playerId, denom);
+    }
+
+    private void printRequest(String requestURI) {
+        RepublicApplication.logger.info("Incoming Request " + requestURI);
+    }
+
     private void printResponseLogAndSaveOutbox() {
         RepublicApplication.logger.info("Returning JSON : ");
         RepublicApplication.logger.info(jsonObject.toString(4));
         saveToOutbox(createNewBoutbox());
     }
 
-    private void saveInboxANdStartTransaction(){
+    private void checkInboxisSavedAndStartTransaction() {
         if (isSaveToInboxSucceed()) {
-            player = Player.byMergedPlayerAndZoneId(voucherPojo.getPlayerId());
-            voucher = Voucher.byPlayerDenomAndType(player, denomsMap.get(voucherPojo.getDenom()), getDenomType());
-            republicBot = RepublicBot.withVoucher(voucher);
-            transactionResult = republicBot.processTopTupAndGetMessage();
+            Player player = Player.byMergedPlayerAndZoneId(voucherPojo.getPlayerId());
+            Voucher voucher = Voucher.byPlayerDenomAndType(player, denomsMap.get(voucherPojo.getDenom()), getDenomType());
+            RepublicBot republicBot = RepublicBot.withVoucher(voucher);
+            Map<Boolean, String> transactionResult = republicBot.processTopTupAndGetMessage();
             if (transactionResult != null) {
+                responsePojo.setVoucher(voucherPojo);
                 for (Map.Entry<Boolean, String> entry : transactionResult.entrySet()) {
                     responsePojo.setStatus((entry.getKey()) ? STATUS_SUCCESS : STATUS_FAILED);
                     responsePojo.setMessage(entry.getValue());
@@ -115,21 +148,21 @@ public class TransactionController {
         }
     }
 
-    private Inboxes createNewInbox(String trxId, String playerId, String denom, HttpServletRequest request) {
+    private Inbox createNewInbox(String trxId, String playerId, String denom, HttpServletRequest request) {
         String message = trxId + "#" + denom + "#" + playerId;
-        return new Inboxes(message, request.getRequestURI(), 0, getJavaUtilDate(), trxId);
+        return new Inbox(message, request.getRequestURI(), 0, getJavaUtilDate(), trxId);
     }
 
-    private void saveToOutbox(Outboxes newBoutbox) {
+    private void saveToOutbox(Outbox newBoutbox) {
         try {
-            outboxId = DBUtilOutboxes.saveOutbox(newBoutbox);
+            Integer outboxId = DBUtilOutboxes.saveOutbox(newBoutbox);
         } catch (Exception e) {
             e.printStackTrace();
             RepublicApplication.logger.info("Failed Save To Outbox");
         }
     }
 
-    private void saveToInbox(Inboxes newInbox) {
+    private void saveToInbox(Inbox newInbox) {
         try {
             inboxId = DBUtilInboxes.saveInbox(newInbox);
         } catch (Exception e) {
@@ -138,8 +171,8 @@ public class TransactionController {
         }
     }
 
-    private Outboxes createNewBoutbox() {
-        return new Outboxes(response, null, getJavaUtilDate(), inboxId);
+    private Outbox createNewBoutbox() {
+        return new Outbox(response, null, getJavaUtilDate(), inboxId);
     }
 
     private boolean isSaveToInboxSucceed() {
@@ -148,24 +181,6 @@ public class TransactionController {
 
     private String getDenomType() {
         return (InputValidator.isInputNumeric(voucherPojo.getDenom())) ? DENOM_TYPE_DIAMOND : DENOM_TYPE_MEMBER;
-    }
-
-    private void initResponseAndValidateRequest(String trxId, String playerId, String denom) {
-        responsePojo = ResponsePojo.byWithTrxIdStatusMessage(trxId, TAG_STATUS_DEFAULT, MSG_ERROR_UNKNOWN );
-        if (!areTrxIdAndPlayerIdNumeric(trxId, playerId))
-            updateResponseMessage(MSG_ERROR_TRX_PLAYER_ID);
-        else {
-            if (isTrxIdAlreadyExists(trxId))
-                updateResponseMessage(MSG_ERROR_TRX_ID_EXISTS);
-            else {
-                if (!isDenomValid(denom))
-                    updateResponseMessage(MSG_ERROR_DENOM_INVALID);
-                else {
-                    voucherPojo = VoucherPojo.byPlayerIdAndDenom(playerId, denom);
-                    isRequestValid = true;
-                }
-            }
-        }
     }
 
     private boolean isDenomValid(String denom) {
@@ -182,31 +197,17 @@ public class TransactionController {
 //        return new java.sql.Date(new java.util.Date().getTime());
 //    }
 
-    private boolean isReadyForTransaction() {
-        if (voucherPojo != null)
-            return true;
-        else return false;
-    }
-
     private boolean isTrxIdAlreadyExists(String trxId) {
-        if (DBUtilInboxes.isTrxIdExists(trxId))
-            return true;
-        else return false;
+        return DBUtilInboxes.isTrxIdExists(trxId);
     }
 
-    private boolean areTrxIdAndPlayerIdNumeric(String trxId, String playerId) {
-        if (!InputValidator.isInputNumeric(trxId) || !InputValidator.isInputNumeric(playerId))
-            return false;
-        else
-            return true;
-    }
+
 
     private void updateResponseMessage(String message) {
         responsePojo.setMessage(message);
     }
 
     private static void initDenomsUri() {
-        RepublicApplication.logger.info("Init Denoms");
         denomsMap.put("14", "1");
         denomsMap.put("42", "3");
         denomsMap.put("70", "5");

@@ -10,10 +10,10 @@
     <property name="connection.username">root</property>
     <property name="connection.password"></property>
 
-      <mapping class="bot.republic.model.Inboxes"/>
+      <mapping class="bot.republic.model.Inbox"/>
       <mapping resource="Inboxes.hbm.xml"/>
       <mapping resource="Outboxes.hbm.xml"/>
-      <mapping class="bot.republic.model.Outboxes"/>
+      <mapping class="bot.republic.model.Outbox"/>
 
 
     <!-- DB schema will be updated if needed -->

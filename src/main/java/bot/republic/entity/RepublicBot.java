@@ -9,7 +9,6 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.firefox.ProfilesIni;
-import org.openqa.selenium.interactions.Actions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -211,7 +210,7 @@ public class RepublicBot {
 //            checkForPaymentResult();
             boolean status = false;
 
-            if (areBalanceAndPlayerExist()) {
+            if (areBalanceSufficientAndPlayerExist()) {
                 if (isTransactionPending()) {
                     status = true;
                     message = MESSAGE_SUCCESS_TRANSACTION;
@@ -223,7 +222,7 @@ public class RepublicBot {
             e.printStackTrace();
             updateMessage("WebDriver Failure During Transaction");
         } finally {
-//            driver.quit();
+            driver.quit();
         }
     }
 
@@ -231,14 +230,12 @@ public class RepublicBot {
         return driver.findElements(By.cssSelector(ELEMENT_STATUS_PENDING_SUCCESS)).size() != 0;
     }
 
-    private boolean areBalanceAndPlayerExist() {
+    private boolean areBalanceSufficientAndPlayerExist() {
         return (!isElementExists(ELEMENT_ERROR_BALANCE) || !isPlayerExists());
     }
 
     private boolean isPlayerExists() {
-        if (!isElementExists(ELEMENT_ERROR_USER_ID) || !isElementExists(ELEMENT_ERROR_ZONE_ID))
-            return true;
-        else return false;
+        return (isElementExists(ELEMENT_ERROR_USER_ID));
     }
 
     private boolean isElementExists(String locator) {
@@ -290,7 +287,6 @@ public class RepublicBot {
 
             driver.findElement(By.id(ELEMENT_FORM_ZONE_ID)).click();
             driver.findElement(By.id(ELEMENT_FORM_ZONE_ID)).clear();
-//            driver.findElement(By.id(ELEMENT_FORM_USER_ID)).sendKeys(Keys.chord(Keys.CONTROL, "a"));
             driver.findElement(By.id(ELEMENT_FORM_ZONE_ID)).sendKeys(voucher.getPlayer().getZoneId());
 
             driver.findElement(By.id(ELEMENT_FORM_ZONE_ID)).sendKeys(Keys.ENTER);

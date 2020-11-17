@@ -1,6 +1,6 @@
 package bot.republic.utility;
 
-import bot.republic.model.Inboxes;
+import bot.republic.model.Inbox;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -22,7 +22,7 @@ public class DBUtilInboxes {
         return factory.openSession();
     }
 
-    public static Integer saveInbox(Inboxes inbox) {
+    public static Integer saveInbox(Inbox inbox) {
         Integer generatedID=null;
 
         Session session = getSession();

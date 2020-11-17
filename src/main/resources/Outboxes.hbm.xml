@@ -4,7 +4,7 @@
     "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 <hibernate-mapping>
 
-    <class name="bot.republic.model.Outboxes" table="outboxes" schema="republic_gg">
+    <class name="bot.republic.model.Outbox" table="outboxes" schema="republic_gg">
         <id name="id">
             <column name="id" sql-type="int(11)"/>
             <generator class="identity" />

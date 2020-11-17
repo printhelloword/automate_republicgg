@@ -1,5 +1,7 @@
 package bot.republic.utility;
 
+import bot.republic.RepublicApplication;
+
 public class InputValidator {
 
     public static boolean isInputNumeric(String input) {
@@ -8,7 +10,7 @@ public class InputValidator {
             Long.parseLong(input);
             status = true;
         } catch (Exception e) {
-            e.printStackTrace();
+            RepublicApplication.logger.info("Input Not Numeric");
         }
         return status;
     }

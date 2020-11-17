@@ -1,6 +1,6 @@
 package bot.republic.utility;
 
-import bot.republic.model.Outboxes;
+import bot.republic.model.Outbox;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -19,7 +19,7 @@ public class DBUtilOutboxes {
         return factory.openSession();
     }
 
-    public static Integer saveOutbox(Outboxes outbox) {
+    public static Integer saveOutbox(Outbox outbox) {
         Integer generatedOutboxId=null;
 
         Session session = getSession();

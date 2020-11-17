@@ -5,7 +5,7 @@ import java.util.Date;
 import java.util.Objects;
 
 @Entity
-public class Inboxes {
+public class Inbox {
     @Id
     @GeneratedValue(strategy= GenerationType.AUTO)
     private int id;
@@ -16,14 +16,14 @@ public class Inboxes {
     private Date createDate;
     private String trxId;
 
-    public Inboxes() {
+    public Inbox() {
     }
 
-    public static Inboxes createInboxFromParsedParams(String message, String trx, Date date, String trxId){
-        return new Inboxes(message, "/trx", 0, date, trxId);
+    public static Inbox createInboxFromParsedParams(String message, String trx, Date date, String trxId){
+        return new Inbox(message, "/trx", 0, date, trxId);
     }
 
-    public Inboxes(String message, String sender, Integer status, Date createDate, String trxId) {
+    public Inbox(String message, String sender, Integer status, Date createDate, String trxId) {
         this.message = message;
         this.sender = sender;
         this.status = status;
@@ -93,7 +93,7 @@ public class Inboxes {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Inboxes inboxes = (Inboxes) o;
+        Inbox inboxes = (Inbox) o;
         return id == inboxes.id &&
                 Objects.equals(message, inboxes.message) &&
                 Objects.equals(sender, inboxes.sender) &&

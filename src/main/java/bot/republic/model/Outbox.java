@@ -5,7 +5,7 @@ import java.util.Date;
 import java.util.Objects;
 
 @Entity
-public class Outboxes {
+public class Outbox {
     @Id
     @GeneratedValue(strategy= GenerationType.AUTO)
     private int id;
@@ -15,7 +15,7 @@ public class Outboxes {
     private Date createDate;
     private Integer inboxId;
 
-    public Outboxes(String message, String receiver, Date createDate, Integer inboxId) {
+    public Outbox(String message, String receiver, Date createDate, Integer inboxId) {
         this.message = message;
         this.receiver = receiver;
         this.createDate = createDate;
@@ -56,7 +56,7 @@ public class Outboxes {
         return createDate;
     }
 
-    public Outboxes() {
+    public Outbox() {
     }
 
     public void setCreateDate(Date createDate) {
@@ -77,7 +77,7 @@ public class Outboxes {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Outboxes outboxes = (Outboxes) o;
+        Outbox outboxes = (Outbox) o;
         return id == outboxes.id &&
                 Objects.equals(message, outboxes.message) &&
                 Objects.equals(receiver, outboxes.receiver) &&
