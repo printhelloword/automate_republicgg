@@ -9,6 +9,8 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.firefox.ProfilesIni;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -19,43 +21,43 @@ import java.util.Map;
 @Component
 public class RepublicBot {
 
-    private static String botUsername;
+    private static String waitTimeForPageLoaded;
+    @Value("${bot.wait.page}")
+    public void setwaitTimeForPageLoaded(String value) {
+        this.waitTimeForPageLoaded = value;
+    }
 
+    private static String botUsername;
     @Value("${bot.username}")
     public void setBotUsername(String value) {
         this.botUsername = value;
     }
 
     private static String botPassword;
-
     @Value("${bot.password}")
     public void set(String value) {
         this.botPassword = value;
     }
 
     private static String botBrowser;
-
     @Value("${bot.browser}")
     public void setBotBrowser(String value) {
         this.botBrowser = value;
     }
 
     private static String botSession;
-
     @Value("${bot.session}")
     public void setBotSession(String value) {
         this.botSession = value;
     }
 
     private static String chromeProfiler;
-
     @Value("${bot.profile.chrome}")
     public void setChromeProfiler(String value) {
         this.chromeProfiler = value;
     }
 
     private static String firefoxProfiler;
-
     @Value("${bot.profile.firefox}")
     public void setFirefoxProfiler(String value) {
         this.firefoxProfiler = value;
@@ -84,13 +86,9 @@ public class RepublicBot {
     private static final String ELEMENT_BUTTON_BUY_NOW = ".buy-now-button";
 
     private static final String ELEMENT_ERROR_USER_ID = ".field-purchaseform-custom_fields-userid > .help-block";
-    private static final String ELEMENT_ERROR_ZONE_ID = ".field-purchaseform-custom_fields-zoneid > .help-block";
     private static final String ELEMENT_ERROR_BALANCE = ".field-purchaseform-package_id > .help-block";
 
     private static final String ELEMENT_STATUS_PENDING_SUCCESS = ".cr-green";
-
-    //SCRIPT COMMAND
-    private static final String JS_SCROLL_TO_INPUT = "window.scrollTo(0,113)";
 
     private static final String MESSAGE_ERROR_PLAYER_DOES_NOT_EXIST = "Invalid User ID or Zone ID";
     private static final String MESSAGE_SUCCESS_TRANSACTION = "Thank You For Purchase!";
@@ -164,10 +162,9 @@ public class RepublicBot {
     public Map<Boolean, String> processTopTupAndGetMessage() {
         initSystemDriverProperties();
         try {
-
             setUpBot();
         } catch (Exception e) {
-            e.printStackTrace();
+            RepublicApplication.logger.info(e.getMessage());
             updateMessage("Start Browser Failed");
         }
         setUrl(voucher.getDenomUri(), voucher.getType());
@@ -198,32 +195,27 @@ public class RepublicBot {
     private void processTopUp() {
 
         startBrowserAndNavigateToPage();
-
-        inputPlayerIdAndSelectDenom();
-        sleep(3);
-
-        processPayment();
-
-        sleep(3);
-
+        inputVoucherDetailsAndProcessPayment();
         try {
-//            checkForPaymentResult();
-            boolean status = false;
-
-            if (areBalanceSufficientAndPlayerExist()) {
-                if (isTransactionPending()) {
-                    status = true;
-                    message = MESSAGE_SUCCESS_TRANSACTION;
-                }
-            }
-
-            transactionStatus.put(status, message);
+            checkBalanceSufficiencyAndUpdateTransactionMessage();
         } catch (Exception e) {
-            e.printStackTrace();
+            RepublicApplication.logger.info(e.getMessage());
             updateMessage("WebDriver Failure During Transaction");
+            driver.close();
         } finally {
             driver.quit();
         }
+    }
+
+    private void checkBalanceSufficiencyAndUpdateTransactionMessage()throws Exception {
+        boolean status = false;
+        if (areBalanceSufficientAndPlayerExist()) {
+            if (isTransactionPending()) {
+                status = true;
+                message = MESSAGE_SUCCESS_TRANSACTION;
+            }
+        }
+        transactionStatus.put(status, message);
     }
 
     private boolean isTransactionPending() {
@@ -246,21 +238,10 @@ public class RepublicBot {
             WebElement element = driver.findElement(By.cssSelector(locator));
             message += element.getText() + " ";
         } catch (Exception e) {
-            e.printStackTrace();
+            RepublicApplication.logger.info(e.getMessage());
             RepublicApplication.logger.info("Failed Check Element : " + locator);
         }
         return isElementExists;
-    }
-
-    private void processPayment() {
-        try {
-            RepublicApplication.logger.info("Clicking 'Buy Now' Button");
-            driver.findElement(By.cssSelector(ELEMENT_BUTTON_BUY_NOW)).click();
-        } catch (Exception e) {
-            e.printStackTrace();
-            updateMessage("Failed Click Button Buy Now");
-            RepublicApplication.logger.info("Error Clicking 'Buy Now' Button");
-        }
     }
 
     private void startBrowserAndNavigateToPage() {
@@ -269,39 +250,74 @@ public class RepublicBot {
             driver.get(url);
 //            driver.manage().window().setSize(new Dimension(1463, 816));
         } catch (Exception e) {
-            e.printStackTrace();
+            RepublicApplication.logger.info(e.getMessage());
             updateMessage("Failure During Navigating to Url");
             RepublicApplication.logger.info("Error Navigating to URL");
         }
     }
 
-    private void inputPlayerIdAndSelectDenom() {
-//        js.executeScript(JS_SCROLL_TO_INPUT);
+    private void inputVoucherDetailsAndProcessPayment() {
         try {
-            RepublicApplication.logger.info("Input Player ID And Zone ID");
-            driver.findElement(By.id(ELEMENT_FORM_USER_ID)).click();
+            waitForElement(ELEMENT_FORM_USER_ID);
+
+            doClickById(ELEMENT_FORM_USER_ID);
             driver.findElement(By.id(ELEMENT_FORM_USER_ID)).clear();
-            driver.findElement(By.id(ELEMENT_FORM_USER_ID)).sendKeys(voucher.getPlayer().getPlayerId());
+            doInputById(ELEMENT_FORM_USER_ID, voucher.getPlayer().getPlayerId());
 
-            sleep(3);
+            sleep(2);
 
-            driver.findElement(By.id(ELEMENT_FORM_ZONE_ID)).click();
+            doClickById(ELEMENT_FORM_ZONE_ID);
             driver.findElement(By.id(ELEMENT_FORM_ZONE_ID)).clear();
-            driver.findElement(By.id(ELEMENT_FORM_ZONE_ID)).sendKeys(voucher.getPlayer().getZoneId());
+            doInputById(ELEMENT_FORM_ZONE_ID, voucher.getPlayer().getZoneId());
 
             driver.findElement(By.id(ELEMENT_FORM_ZONE_ID)).sendKeys(Keys.ENTER);
+
+            sleep(3);
+            doClickByCssSelector(ELEMENT_BUTTON_BUY_NOW);
+            sleep(3);
         } catch (Exception e) {
-            e.printStackTrace();
+            RepublicApplication.logger.info(e.getMessage());
             updateMessage("Failure During Input PlayerId");
             RepublicApplication.logger.info("Error Input Player ID And Zone ID");
         }
+    }
+
+    private void waitForElement(String locator) throws Exception {
+        WebDriverWait wait = new WebDriverWait(driver, Integer.parseInt(waitTimeForPageLoaded));  // you can reuse this one
+        WebElement firstResult = driver.findElement(By.id(locator));
+        RepublicApplication.logger.info("Waiting for Input Form. Time(s):"+waitTimeForPageLoaded);
+        wait.until(ExpectedConditions.visibilityOf(firstResult));
+    }
+
+    private void printPerformedAction(String action, String element) {
+        RepublicApplication.logger.info("[Action]:" + action + " | [Target]->" + element);
+    }
+
+    private void doClickById(String locator) {
+        printPerformedAction("Click", locator);
+        driver.findElement(By.id(locator)).click();
+    }
+
+    private void doClickByCssSelector(String locator) throws Exception {
+        printPerformedAction("Click", locator);
+        driver.findElement(By.cssSelector(locator)).click();
+    }
+
+    private void doInputByCssSelector(String locator, String value) throws Exception {
+        printPerformedAction("Input", value);
+        driver.findElement(By.cssSelector(locator)).sendKeys(value);
+    }
+
+    private void doInputById(String locator, String value) throws Exception {
+        printPerformedAction("Input", value);
+        driver.findElement(By.id(locator)).sendKeys(value);
     }
 
     private void sleep(Integer time) {
         try {
             Thread.sleep(time * 1000);
         } catch (Exception e) {
-            e.printStackTrace();
+            RepublicApplication.logger.info(e.getMessage());
         }
     }
 
