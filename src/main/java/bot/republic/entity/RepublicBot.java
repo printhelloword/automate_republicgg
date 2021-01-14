@@ -27,6 +27,12 @@ public class RepublicBot {
         this.waitTimeForPageLoaded = value;
     }
 
+    private static String waitTimeForSubmitingPayment;
+    @Value("${max.wait.submit}")
+    public void setWaitTimeForSubmitingPayment(String value) {
+        this.waitTimeForSubmitingPayment = value;
+    }
+
     private static String botUsername;
     @Value("${bot.username}")
     public void setBotUsername(String value) {
@@ -196,6 +202,7 @@ public class RepublicBot {
 
         startBrowserAndNavigateToPage();
         inputVoucherDetailsAndProcessPayment();
+
         try {
             checkBalanceSufficiencyAndUpdateTransactionMessage();
         } catch (Exception e) {
@@ -258,7 +265,7 @@ public class RepublicBot {
 
     private void inputVoucherDetailsAndProcessPayment() {
         try {
-            waitForElement(ELEMENT_FORM_USER_ID);
+            waitForElementById(ELEMENT_FORM_USER_ID, waitTimeForPageLoaded);
 
             doClickById(ELEMENT_FORM_USER_ID);
             driver.findElement(By.id(ELEMENT_FORM_USER_ID)).clear();
@@ -274,6 +281,7 @@ public class RepublicBot {
 
             sleep(3);
             doClickByCssSelector(ELEMENT_BUTTON_BUY_NOW);
+            handleButtonSubmitting();
             sleep(3);
         } catch (Exception e) {
             RepublicApplication.logger.info(e.getMessage());
@@ -282,11 +290,26 @@ public class RepublicBot {
         }
     }
 
-    private void waitForElement(String locator) throws Exception {
-        WebDriverWait wait = new WebDriverWait(driver, Integer.parseInt(waitTimeForPageLoaded));  // you can reuse this one
+    private void handleButtonSubmitting()throws Exception {
+        try{
+            RepublicApplication.logger.info("Wait for Submitting");
+            waitForElementByCss(ELEMENT_STATUS_PENDING_SUCCESS, waitTimeForSubmitingPayment);
+        }catch (Exception e){
+            RepublicApplication.logger.info(e.getMessage());
+        }
+    }
+
+    private void waitForElementById(String locator, String time) throws Exception {
+        WebDriverWait wait = new WebDriverWait(driver, Integer.parseInt(time));  // you can reuse this one
         WebElement firstResult = driver.findElement(By.id(locator));
-        RepublicApplication.logger.info("Waiting for Input Form. Time(s):"+waitTimeForPageLoaded);
+        RepublicApplication.logger.info("Waiting for Element. Time(s):"+time);
         wait.until(ExpectedConditions.visibilityOf(firstResult));
+    }
+
+    private void waitForElementByCss(String locator, String time) throws Exception {
+        WebElement firstResult = new WebDriverWait(driver, new Long(time))
+                .until(ExpectedConditions.elementToBeClickable(By.cssSelector(locator)));
+        RepublicApplication.logger.info(firstResult.getText());
     }
 
     private void printPerformedAction(String action, String element) {

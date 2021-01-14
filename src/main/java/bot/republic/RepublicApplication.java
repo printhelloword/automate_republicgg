@@ -12,5 +12,4 @@ public static org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger
 	public static void main(String[] args) {
 		SpringApplication.run(RepublicApplication.class, args);
 	}
-
 }

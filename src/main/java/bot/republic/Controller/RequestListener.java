@@ -30,8 +30,15 @@ public class RequestListener {
         return new JSONObject(responsePojo).toString();
     }
 
+    @GetMapping("/trx")
+    public String get()
+            throws IOException {
+
+        return "";
+    }
+
     private void printRequest(Request request) {
-        RepublicApplication.logger.info("======Incoming Request===== trx/"+request.mergedRequestSeparatedBySlash()+"/");
+        RepublicApplication.logger.info("=====Incoming Request===== trx/"+request.mergedRequestSeparatedBySlash()+"/");
     }
 
 }

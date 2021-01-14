@@ -154,10 +154,6 @@ public class TransactionController {
         return new java.util.Date();
     }
 
-//    private java.sql.Date getjavaSqlDate(){
-//        return new java.sql.Date(new java.util.Date().getTime());
-//    }
-
     private boolean isTrxIdAlreadyExists() {
         return DBUtilInboxes.isTrxIdExists(request.getTrxId());
     }
@@ -195,5 +191,8 @@ public class TransactionController {
         return denomsMap;
     }
 
+    /*private java.sql.Date getjavaSqlDate(){
+        return new java.sql.Date(new java.util.Date().getTime());
+    }*/
 
 }
